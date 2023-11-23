@@ -74,7 +74,7 @@ public class JavaClient {
 
         BufferedReader inFromServer =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        outToServer.writeBytes("Thank\n");
+        outToServer.writeBytes("Thanks man\n");
 
         CThread write = new CThread(inFromServer, outToServer, 0);
         CThread read = new CThread(inFromServer, outToServer, 1);
@@ -84,13 +84,9 @@ public class JavaClient {
         clientSocket.close();
     }
 }
-/*
-hiển thị video từ máy chủ.
-hiển thị chatbox.
-*/
+
 class Vidshow extends Thread {
-    
-    //khai báo
+
     JFrame jf = new JFrame();
     public static JPanel jp = new JPanel(new GridLayout(2,1));
     public static JPanel half = new JPanel(new GridLayout(5,1));
@@ -109,7 +105,6 @@ class Vidshow extends Thread {
     public Vidshow() throws Exception {
         //sc = mysoc;
         //sc.setTcpNoDelay(true);
-        //GUI
         jf.setSize(640, 960);
         jf.setTitle("Client Show");
         jf.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -145,26 +140,22 @@ class Vidshow extends Thread {
             System.out.println("got in");
             do {
                 System.out.println("doing");
-                //lấy cổng của đối tượng ds (một đối tượng DatagramSocket).
                 System.out.println(JavaClient.ds.getPort());
-                //Nhận dữ liệu từ ds và lưu trữ nó trong đối tượng dp (một đối tượng DatagramPacket).
+                
                 JavaClient.ds.receive(dp);
                 System.out.println("received");
-                //Đọc dữ liệu mảng byte từ hình ảnh được gửi đến
                 ByteArrayInputStream bais = new ByteArrayInputStream(rcvbyte);
-                //Đọc hình ảnh từ bais
+                
                 bf = ImageIO.read(bais);
 
                 if (bf != null) {
                     //jf.setVisible(true);
-                    //đặt hình ảnh vào Jpanel
                     imc = new ImageIcon(bf);
                     jl.setIcon(imc);
                     //jp.add(jl);
                     //jf.add(jp);
                     Thread.sleep(15);
                 }
-                //Cập nhật giao diện để hiển thị hình ảnh mới trong jl.
                 jf.revalidate();
                 jf.repaint();
                 
@@ -176,9 +167,7 @@ class Vidshow extends Thread {
         }
     }
 }
-/*
-quản lý chat máy khách.
-*/
+
 class CThread extends Thread {
 
     BufferedReader inFromServer;
@@ -187,33 +176,28 @@ class CThread extends Thread {
     public static String sentence;
     int RW_Flag;
     JPanel Bt1 = new JPanel();
+
     public CThread(BufferedReader in, DataOutputStream out, int rwFlag) {
         inFromServer = in;
         outToServer = out;
-        //mã xác định xem luồng sẽ được sử dụng để đọc (1) hay ghi (0).
         RW_Flag = rwFlag;
         Bt1.add(sender);
         if(rwFlag == 0)
         {
-            //Thêm panel cập nhật vào giao diện
             Vidshow.half.add(Bt1);
             sender.addActionListener(new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                //Lấy văn bản từ GUI
                 sentence = Vidshow.tb.getText();
-                //Thêm văn bản vào textarea trong giao diện người dùng.
                 Vidshow.ta.append("From myself: "+sentence+"\n");
                 try{
-                // Ghi dữ liệu văn bản sentence vào luồng đầu ra, gửi nó đến máy chủ.
                 outToServer.writeBytes(sentence + '\n');
                 }
                 catch(Exception E)
                 {
-                System.out.println("From : " + sentence);
+                
                 }
-                //xóa nội dung
                 Vidshow.tb.setText(null);
             }
         });
@@ -225,32 +209,25 @@ class CThread extends Thread {
         String mysent;
         try {
             while (true) {
-                //gửi
                 if (RW_Flag == 0) {
                     if(sentence.length()>0)
                     {
-                        //Thêm vào text area
+                        
                         Vidshow.ta.append(sentence+"\n");
                         Vidshow.ta.setCaretPosition(Vidshow.ta.getDocument().getLength());
-                        //Cập nhật lại các panel của giao diện người dùng hiển thị dữ liệu
                         Vidshow.half.revalidate();
                         Vidshow.half.repaint();
                         Vidshow.jp.revalidate();
                         Vidshow.jp.repaint();
-                        //Gửi dữ liệu đến server
                         outToServer.writeBytes(sentence + '\n');
-                        //Reset
                         sentence = null;
                         Vidshow.tb.setText(null);
                     }
-                //Đọc
                 } else if (RW_Flag == 1) {
-                    //Đọc dữ liệu từ server
                     mysent = inFromServer.readLine();
-                    //Thêm
+                    
                     Vidshow.ta.append(mysent+"\n");
                     Vidshow.ta.setCaretPosition(Vidshow.ta.getDocument().getLength());
-                    //Cập nhật
                     Vidshow.half.revalidate();
                     Vidshow.half.repaint();
                     Vidshow.jp.revalidate();
