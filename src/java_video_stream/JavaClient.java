@@ -1,0 +1,270 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package Java_Video_Stream;
+
+import javax.swing.*;
+import java.awt.BorderLayout;
+import java.awt.Button;
+import java.awt.Canvas;
+import java.awt.Graphics;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.Socket;
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.ScrollPaneConstants;
+
+/**
+ *
+ * @author Nghia
+ */
+public class JavaClient {
+    public static DatagramSocket ds;
+
+    public static void main(String[] args) throws Exception {
+        ds = new DatagramSocket();
+        
+        byte[] init = new byte[62000];
+        init = "givedata".getBytes();
+        
+        InetAddress addr = InetAddress.getLocalHost();
+        
+        DatagramPacket dp = new DatagramPacket(init,init.length,addr,4321);
+        
+        ds.send(dp);
+        
+        DatagramPacket rcv = new DatagramPacket(init, init.length);
+        
+        ds.receive(rcv);
+        System.out.println(new String(rcv.getData()));
+        
+        System.out.println(ds.getPort());
+        Vidshow vd = new Vidshow();
+        vd.start();
+        
+        String modifiedSentence;
+
+        InetAddress inetAddress = InetAddress.getLocalHost();
+        //.getByName(String hostname); "CL11"
+        System.out.println(inetAddress);
+
+        Socket clientSocket = new Socket(inetAddress, 6782);
+        DataOutputStream outToServer =
+                new DataOutputStream(clientSocket.getOutputStream());
+
+        BufferedReader inFromServer =
+                new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        outToServer.writeBytes("Thank\n");
+
+        CThread write = new CThread(inFromServer, outToServer, 0);
+        CThread read = new CThread(inFromServer, outToServer, 1);
+
+        write.join();
+        read.join();
+        clientSocket.close();
+    }
+}
+/*
+hiển thị video từ máy chủ.
+hiển thị chatbox.
+*/
+class Vidshow extends Thread {
+    
+    //khai báo
+    JFrame jf = new JFrame();
+    public static JPanel jp = new JPanel(new GridLayout(2,1));
+    public static JPanel half = new JPanel(new GridLayout(5,1));
+    JLabel jl = new JLabel();
+    JLabel jl1 = new JLabel("Chat Box:");
+    JLabel jl2 = new JLabel("Comment:");
+    public static JTextArea ta,tb;
+    
+    byte[] rcvbyte = new byte[62000];
+    
+    DatagramPacket dp = new DatagramPacket(rcvbyte, rcvbyte.length);
+    BufferedImage bf;
+    ImageIcon imc;
+    
+    
+    public Vidshow() throws Exception {
+        //sc = mysoc;
+        //sc.setTcpNoDelay(true);
+        //GUI
+        jf.setSize(640, 960);
+        jf.setTitle("Client Show");
+        jf.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        jf.setAlwaysOnTop(true);
+        jf.setLayout(new BorderLayout());
+        jf.setVisible(true);
+        jp.add(jl);
+        jp.add(half);
+        jf.add(jp);
+        
+        
+        JScrollPane jpane = new JScrollPane();
+        jpane.setSize(300, 200);
+        ta = new JTextArea();
+        tb = new JTextArea();
+        
+        jpane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        jpane.add(ta);
+        jpane.setViewportView(ta);
+        half.add(jl1);
+        half.add(jpane);
+        half.add(jl2);
+        half.add(tb);
+        ta.setText("Begins\n");
+        
+        
+    }
+
+    @Override
+    public void run() {
+
+        try {
+            System.out.println("got in");
+            do {
+                System.out.println("doing");
+                //lấy cổng của đối tượng ds (một đối tượng DatagramSocket).
+                System.out.println(JavaClient.ds.getPort());
+                //Nhận dữ liệu từ ds và lưu trữ nó trong đối tượng dp (một đối tượng DatagramPacket).
+                JavaClient.ds.receive(dp);
+                System.out.println("received");
+                //Đọc dữ liệu mảng byte từ hình ảnh được gửi đến
+                ByteArrayInputStream bais = new ByteArrayInputStream(rcvbyte);
+                //Đọc hình ảnh từ bais
+                bf = ImageIO.read(bais);
+
+                if (bf != null) {
+                    //jf.setVisible(true);
+                    //đặt hình ảnh vào Jpanel
+                    imc = new ImageIcon(bf);
+                    jl.setIcon(imc);
+                    //jp.add(jl);
+                    //jf.add(jp);
+                    Thread.sleep(15);
+                }
+                //Cập nhật giao diện để hiển thị hình ảnh mới trong jl.
+                jf.revalidate();
+                jf.repaint();
+                
+
+            } while (true);
+
+        } catch (Exception e) {
+            System.out.println("couldnt do it");
+        }
+    }
+}
+/*
+quản lý chat máy khách.
+*/
+class CThread extends Thread {
+
+    BufferedReader inFromServer;
+    JButton sender = new JButton("Send Text");
+    DataOutputStream outToServer;
+    public static String sentence;
+    int RW_Flag;
+    JPanel Bt1 = new JPanel();
+    public CThread(BufferedReader in, DataOutputStream out, int rwFlag) {
+        inFromServer = in;
+        outToServer = out;
+        //mã xác định xem luồng sẽ được sử dụng để đọc (1) hay ghi (0).
+        RW_Flag = rwFlag;
+        Bt1.add(sender);
+        if(rwFlag == 0)
+        {
+            //Thêm panel cập nhật vào giao diện
+            Vidshow.half.add(Bt1);
+            sender.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                //Lấy văn bản từ GUI
+                sentence = Vidshow.tb.getText();
+                //Thêm văn bản vào textarea trong giao diện người dùng.
+                Vidshow.ta.append("From myself: "+sentence+"\n");
+                try{
+                // Ghi dữ liệu văn bản sentence vào luồng đầu ra, gửi nó đến máy chủ.
+                outToServer.writeBytes(sentence + '\n');
+                }
+                catch(Exception E)
+                {
+                System.out.println("From : " + sentence);
+                }
+                //xóa nội dung
+                Vidshow.tb.setText(null);
+            }
+        });
+        }
+        start();
+    }
+
+    public void run() {
+        String mysent;
+        try {
+            while (true) {
+                //gửi
+                if (RW_Flag == 0) {
+                    if(sentence.length()>0)
+                    {
+                        //Thêm vào text area
+                        Vidshow.ta.append(sentence+"\n");
+                        Vidshow.ta.setCaretPosition(Vidshow.ta.getDocument().getLength());
+                        //Cập nhật lại các panel của giao diện người dùng hiển thị dữ liệu
+                        Vidshow.half.revalidate();
+                        Vidshow.half.repaint();
+                        Vidshow.jp.revalidate();
+                        Vidshow.jp.repaint();
+                        //Gửi dữ liệu đến server
+                        outToServer.writeBytes(sentence + '\n');
+                        //Reset
+                        sentence = null;
+                        Vidshow.tb.setText(null);
+                    }
+                //Đọc
+                } else if (RW_Flag == 1) {
+                    //Đọc dữ liệu từ server
+                    mysent = inFromServer.readLine();
+                    //Thêm
+                    Vidshow.ta.append(mysent+"\n");
+                    Vidshow.ta.setCaretPosition(Vidshow.ta.getDocument().getLength());
+                    //Cập nhật
+                    Vidshow.half.revalidate();
+                    Vidshow.half.repaint();
+                    Vidshow.jp.revalidate();
+                    Vidshow.jp.repaint();
+                    
+                    
+                    
+                    System.out.println("From : " + sentence);
+                    sentence = null;
+                    
+                }
+            }
+        } catch (Exception e) {
+        }
+    }
+}
+
